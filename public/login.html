@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <title>เข้าสู่ระบบ - ระบบยืมสำนวน</title>
+  <style>
+    body {
+      font-family: "Sarabun", sans-serif;
+      background-color: #f4f4f4;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+    }
+
+    .login-container {
+      background-color: white;
+      padding: 30px 40px;
+      border-radius: 12px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+      width: 350px;
+      text-align: center;
+    }
+
+    h2 {
+      margin-bottom: 25px;
+      color: #2c3e50;
+    }
+
+    label {
+      display: block;
+      margin: 10px 0 5px;
+      font-weight: bold;
+      color: #34495e;
+    }
+
+    input {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 15px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 16px;
+    }
+
+    button {
+      background-color: #2c3e50;
+      color: white;
+      border: none;
+      padding: 12px 20px;
+      border-radius: 6px;
+      font-size: 16px;
+      cursor: pointer;
+      width: 100%;
+      transition: background-color 0.3s ease;
+    }
+
+    button:hover {
+      background-color: #1a252f;
+    }
+
+    .logo {
+      width: 80px;
+      margin-bottom: 15px;
+    }
+
+    .footer {
+      margin-top: 20px;
+      font-size: 12px;
+      color: #888;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="login-container">
+    <img src="https://upload.wikimedia.org/wikipedia/commons/8/81/Royal_Thai_Police_Seal.svg" alt="ตราแผ่นดิน" class="logo" />
+    <h2>ระบบยืมและคืนสำนวน</h2>
+
+    <label for="username">ชื่อผู้ใช้:</label>
+    <input type="text" id="username" placeholder="กรอกชื่อ เช่น ด.ต. สมชาย" />
+
+    <button id="loginBtn">เข้าสู่ระบบ</button>
+
+    <div class="footer">สำนักงานตำรวจแห่งชาติ</div>
+  </div>
+
+  <script>
+    async function login() {
+      const name = document.getElementById("username").value.trim();
+      if (!name) {
+        alert("กรุณากรอกชื่อผู้ใช้");
+        return;
+      }
+
+      try {
+        const res = await fetch("/api/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name }),
+        });
+
+        const data = await res.json();
+
+        if (!data.success) {
+          alert("เกิดข้อผิดพลาด: " + (data.message || data.error));
+          return;
+        }
+
+        localStorage.setItem("name", name);
+        window.location.href = name.toLowerCase() === "admin" ? "admin.html" : "main.html";
+      } catch (err) {
+        alert("เกิดข้อผิดพลาด: " + err.message);
+      }
+    }
+
+    document.getElementById("loginBtn").addEventListener("click", login);
+  </script>
+</body>
+</html>

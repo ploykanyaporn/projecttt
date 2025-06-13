@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8" />
+    <title>ระบบยืมและคืนสำนวน</title>
+    <script type="module">
+        import {
+            getFirestore, collection, doc, setDoc, getDocs,
+            addDoc, updateDoc, query, where, serverTimestamp, orderBy
+        } from "https://www.gstatic.com/firebasejs/11.7.3/firebase-firestore.js";
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.7.3/firebase-app.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCpMbSik_WUBNLCAIYu7cvalMYLnNMOCYg",
+            authDomain: "project-1acdd.firebaseapp.com",
+            databaseURL: "https://project-1acdd-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "project-1acdd",
+            storageBucket: "project-1acdd.appspot.com",
+            messagingSenderId: "857000499734",
+            appId: "1:857000499734:web:94c5c09f9ebf224e7db337",
+            measurementId: "G-P7RZJD9P1G"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        window.db = db;
+        window.firestoreFunctions = {
+            collection,
+            doc,
+            setDoc,
+            getDocs,
+            addDoc,
+            updateDoc,
+            query,
+            where,
+            serverTimestamp,
+            orderBy
+        };
+    </script>
+    <style>
+        body {
+            font-family: "Sarabun", sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+            color: #2c3e50;
+        }
+        h2, h3, h4 {
+            color: #2c3e50;
+        }
+        .container {
+            max-width: 800px;
+            margin: auto;
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        input[type="text"] {
+            padding: 10px;
+            width: calc(100% - 24px);
+            margin-bottom: 12px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 16px;
+        }
+        button {
+            background-color: #2c3e50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-top: 10px;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #1a252f;
+        }
+        ul { list-style: none; padding-left: 0; }
+        li {
+            padding: 10px;
+            margin-bottom: 8px;
+            background-color: #eef2f5;
+            border-radius: 6px;
+            white-space: pre-line;
+        }
+        .section { margin-top: 30px; }
+        .label {
+            font-weight: bold;
+            margin-top: 10px;
+            display: block;
+        }
+        .search-bar input { margin-bottom: 5px; }
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            font-size: 12px;
+            color: #888;
+        }
+        #loginSection {
+            max-width: 400px;
+            margin: 100px auto;
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        .logout-bar { text-align: right; }
+        .borrowed-section {
+            background: #fffbe7;
+            border: 1.5px solid #ffe088;
+            border-radius: 10px;
+            padding: 15px 20px;
+            margin-bottom: 24px;
+        }
+        .note {
+            color: #a78c20;
+            margin-bottom: 0.5em;
+            font-size: 13px;
+        }
+        /* Modal */
+        #modalConfirm {
+            display:none;
+            position:fixed;
+            z-index:9999;
+            left:0; top:0;
+            width:100vw; height:100vh;
+            background:rgba(0,0,0,0.18);
+            align-items:center; justify-content:center;
+        }
+        #modalConfirm.active { display: flex; }
+        #modalConfirm .modal-box {
+            background:#fff;
+            padding:32px 22px 22px 22px;
+            border-radius:12px;
+            min-width:300px;
+            text-align:center;
+            box-shadow:0 10px 32px rgba(0,0,0,0.18);
+            position: relative;
+        }
+        #modalConfirm .btn-confirm { background: #27ae60; }
+        #modalConfirm .btn-cancel {
+            background: #bdbdbd; color:#222; margin-left: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div id="loginSection" class="container">
+        <h2>เข้าสู่ระบบ</h2>
+        <label class="label">กรุณากรอกชื่อของคุณ:</label>
+        <input type="text" id="inputName" placeholder="เช่น ร.ต.อ. นิรันดร์ หรือ admin" />
+        <button onclick="login()">เข้าสู่ระบบ</button>
+    </div>
+    <div id="mainSection" class="container" style="display:none;">
+        <div class="logout-bar">
+            <button onclick="logout()" style="background:#e74c3c;margin-top:0;">ออกจากระบบ</button>
+        </div>
+        <h2>ระบบยืมและคืนสำนวน</h2>
+        <p>สวัสดีคุณ <span id="username"></span></p>
+        <!-- สำหรับตำรวจ -->
+        <div id="policeView" style="display:none;">
+            <div class="section">
+                <h3>บันทึกการยืมสำนวน</h3>
+                <label class="label">เลขสำนวน:</label>
+                <input type="text" id="caseNumber" placeholder="เช่น 123/2566" />
+
+                <label class="label">ชื่อผู้ต้องหา:</label>
+                <input type="text" id="suspectName" placeholder="กรอกชื่อผู้ต้องหา" />
+
+                <label class="label">ผู้เสียหาย:</label>
+                <input type="text" id="victimName" placeholder="ชื่อผู้เสียหาย" />
+
+                <label class="label">พนักงานสอบสวน:</label>
+                <input type="text" id="investigatorName" placeholder="ชื่อพนักงานสอบสวน" />
+
+                <button onclick="saveBorrow()">บันทึกการยืม</button>
+            </div>
+
+            <div class="section borrowed-section">
+                <h4>📋 รายการที่ยังยืมอยู่ <button onclick="loadMyBorrows()">รีเฟรช</button></h4>
+                <div class="note">แสดงเฉพาะสำนวนที่คุณกำลังยืมอยู่ (ยังไม่ได้คืน)</div>
+                <ul id="myRequests"></ul>
+            </div>
+
+            <div class="section borrowed-section">
+                <h4>🔄 คืนสำนวน <button onclick="loadReturnable()">รีเฟรช</button></h4>
+                <div class="note">เลือกสำนวนที่ต้องการคืนจากรายการที่ยังยืมอยู่</div>
+                <ul id="returnableList"></ul>
+            </div>
+
+            <div class="section">
+                <h4>ประวัติการยืม-คืนของฉัน <button onclick="loadMyHistory()">รีเฟรช</button></h4>
+                <ul id="myHistory"></ul>
+            </div>
+        </div>
+
+        <!-- สำหรับแอดมิน -->
+        <div id="adminView" style="display:none;">
+            <div class="section">
+                <h3>รายการการยืมทั้งหมด <button onclick="loadAllRequests()">รีเฟรช</button></h3>
+                <div class="search-bar">
+                    <label class="label">ค้นหาด้วยชื่อผู้ต้องหา หรือ พนักงานสอบสวน:</label>
+                    <input type="text" id="searchQuery" oninput="filterRequests()"
+                           placeholder="กรอกชื่อผู้ต้องหา หรือ พนักงานสอบสวน" />
+                </div>
+                <ul id="allRequests"></ul>
+            </div>
+        </div>
+        <div class="footer">สำนักงานตำรวจแห่งชาติ</div>
+    </div>
+
+    <!-- Modal ยืนยันคืนสำนวน -->
+    <div id="modalConfirm">
+        <div class="modal-box">
+            <div style="font-size:18px; margin-bottom:18px;">
+                คุณต้องการคืนสำนวนนี้ใช่หรือไม่?
+            </div>
+            <div>
+                <button id="btnConfirmReturn" class="btn-confirm">ยืนยัน</button>
+                <button onclick="closeModal()" class="btn-cancel">ยกเลิก</button>
+            </div>
+        </div>
+    </div>
+    <script>
+        let name = null, isAdmin = false, isPolice = false;
+        // สำหรับ modal
+        let currentReturnDocId = null;
+
+        function login() {
+            const input = document.getElementById("inputName").value.trim();
+            if (!input) {
+                alert("กรุณากรอกชื่อของคุณ");
+                return;
+            }
+            name = input;
+            localStorage.setItem("name", name);
+
+            document.getElementById("loginSection").style.display = "none";
+            document.getElementById("mainSection").style.display = "block";
+            document.getElementById("username").innerText = name;
+
+            isAdmin = name.toLowerCase().includes("admin");
+            isPolice = !isAdmin;
+
+            if (isPolice) {
+                document.getElementById("policeView").style.display = "block";
+                document.getElementById("adminView").style.display = "none";
+                loadMyBorrows();
+                loadReturnable();
+                loadMyHistory();
+            } else {
+                document.getElementById("adminView").style.display = "block";
+                document.getElementById("policeView").style.display = "none";
+                loadAllRequests();
+            }
+        }
+
+        function logout() {
+            if (confirm("คุณต้องการออกจากระบบหรือไม่?")) {
+                localStorage.removeItem("name");
+                location.reload();
+            }
+        }
+
+        window.onload = () => {
+            const savedName = localStorage.getItem("name");
+            if (savedName) {
+                document.getElementById("inputName").value = savedName;
+                login();
+            }
+        };
+
+        async function saveBorrow() {
+            const {
+                collection,
+                addDoc,
+                query,
+                where,
+                getDocs,
+                serverTimestamp
+            } = window.firestoreFunctions;
+            const db = window.db;
+            const caseNumber = document.getElementById("caseNumber").value.trim();
+            const suspect = document.getElementById("suspectName").value.trim();
+            const victim = document.getElementById("victimName").value.trim();
+            const investigator = document.getElementById("investigatorName").value.trim();
+            const officer = localStorage.getItem("name") || "ไม่ระบุ";
+            if (!caseNumber || !suspect || !victim || !investigator) {
+                alert("กรุณากรอกข้อมูลให้ครบทุกช่อง");
+                return;
+            }
+            const q = query(
+                collection(db, "cases"),
+                where("caseNumber", "==", caseNumber),
+                where("status", "==", "borrowed")
+            );
+            const existing = await getDocs(q);
+            if (!existing.empty) {
+                alert("สำนวนนี้ถูกยืมอยู่แล้ว");
+                return;
+            }
+            await addDoc(collection(db, "cases"), {
+                caseNumber,
+                suspect,
+                victim,
+                investigator,
+                officer,
+                status: "borrowed",
+                timestamp: serverTimestamp()
+            });
+            alert("บันทึกการยืมเรียบร้อยแล้ว");
+            document.getElementById("caseNumber").value = '';
+            document.getElementById("suspectName").value = '';
+            document.getElementById("victimName").value = '';
+            document.getElementById("investigatorName").value = '';
+            loadMyBorrows();
+            loadReturnable();
+            loadMyHistory();
+        }
+
+        async function loadMyBorrows() {
+            const {
+                collection,
+                getDocs,
+                query,
+                where,
+                orderBy
+            } = window.firestoreFunctions;
+            const db = window.db;
+            const list = document.getElementById("myRequests");
+            list.innerHTML = '';
+            const q = query(
+                collection(db, "cases"),
+                where("officer", "==", name),
+                where("status", "==", "borrowed"),
+                orderBy("timestamp", "desc")
+            );
+            const snapshot = await getDocs(q);
+            if (snapshot.empty) {
+                list.innerHTML = '<li>ไม่มีสำนวนที่ยืมอยู่</li>';
+                return;
+            }
+            snapshot.forEach(doc => {
+                const b = doc.data();
+                const borrowedAt = b.timestamp?.toDate().toLocaleString() || '-';
+                const li = document.createElement("li");
+                li.innerText = `เลขสำนวน: ${b.caseNumber}, ผู้ต้องหา: ${b.suspect}, ผู้เสียหาย: ${b.victim}, พนักงานสอบสวน: ${b.investigator} 📌 ยืมอยู่\n🕒 ยืมเมื่อ: ${borrowedAt}`;
+                list.appendChild(li);
+            });
+        }
+
+        async function loadReturnable() {
+            const {
+                collection,
+                getDocs,
+                query,
+                where,
+                orderBy
+            } = window.firestoreFunctions;
+            const db = window.db;
+            const list = document.getElementById("returnableList");
+            list.innerHTML = '';
+            const q = query(
+                collection(db, "cases"),
+                where("officer", "==", name),
+                where("status", "==", "borrowed"),
+                orderBy("timestamp", "desc")
+            );
+            const snapshot = await getDocs(q);
+            if (snapshot.empty) {
+                list.innerHTML = '<li>ไม่มีสำนวนที่ยังต้องคืน</li>';
+                return;
+            }
+            snapshot.forEach(docSnap => {
+                const b = docSnap.data();
+                const li = document.createElement("li");
+                li.innerText = `เลขสำนวน: ${b.caseNumber}, ผู้ต้องหา: ${b.suspect}, ผู้เสียหาย: ${b.victim}`;
+                const btn = document.createElement("button");
+                btn.textContent = "คืนสำนวน";
+                btn.style.marginLeft = "10px";
+                btn.onclick = () => returnCase(docSnap.id);
+                li.appendChild(btn);
+                list.appendChild(li);
+            });
+        }
+
+        // ==== Modal Return Case ====
+        function openModal(docId) {
+            currentReturnDocId = docId;
+            document.getElementById("modalConfirm").classList.add("active");
+        }
+        function closeModal() {
+            document.getElementById("modalConfirm").classList.remove("active");
+            currentReturnDocId = null;
+        }
+        async function doReturnCase() {
+            if (!currentReturnDocId) return;
+            const {
+                doc,
+                updateDoc,
+                serverTimestamp
+            } = window.firestoreFunctions;
+            const db = window.db;
+            await updateDoc(doc(db, "cases", currentReturnDocId), {
+                status: "returned",
+                returnedAt: serverTimestamp()
+            });
+            closeModal();
+            alert("คืนสำนวนเรียบร้อยแล้ว");
+            loadMyBorrows();
+            loadReturnable();
+            loadMyHistory();
+            if (isAdmin) loadAllRequests();
+        }
+        function returnCase(docId) {
+            openModal(docId);
+        }
+
+        // ติดตั้ง event ปุ่ม confirm ใน modal (หลัง DOM โหลด)
+        document.addEventListener("DOMContentLoaded", function () {
+            const btn = document.getElementById('btnConfirmReturn');
+            if (btn) btn.onclick = doReturnCase;
+        });
+
+        async function loadMyHistory() {
+            const {
+                collection,
+                getDocs,
+                query,
+                where,
+                orderBy
+            } = window.firestoreFunctions;
+            const db = window.db;
+            const list = document.getElementById("myHistory");
+            list.innerHTML = '';
+            let q, snapshot;
+            try {
+                q = query(
+                    collection(db, "cases"),
+                    where("officer", "==", name),
+                    where("status", "==", "returned"),
+                    orderBy("timestamp", "desc")
+                );
+                snapshot = await getDocs(q);
+            } catch (e) {
+                if (e.code === 'failed-precondition' && e.message && e.message.includes('index')) {
+                    list.innerHTML = `<li>ต้องสร้าง composite index ที่ Firestore!<br>${e.message.match(/https:\/\/console\.firebase\.google\.com[^\s]+/gi)}</li>`;
+                    return;
+                } else {
+                    list.innerHTML = `<li>เกิดข้อผิดพลาด<br>${e.message}</li>`;
+                    return;
+                }
+            }
+            if (snapshot.empty) {
+                list.innerHTML = '<li>ยังไม่มีประวัติการยืม-คืน</li>';
+                return;
+            }
+            snapshot.forEach(doc => {
+                const record = doc.data();
+                const statusText = record.status === "borrowed" ? "📌 ยืมอยู่" : "✅ คืนแล้ว";
+                const borrowedDate = record.timestamp?.toDate().toLocaleString() || '-';
+                const returnedDate = record.returnedAt ? ` คืนเมื่อ: ${record.returnedAt.toDate().toLocaleString()}` : "";
+                const li = document.createElement("li");
+                li.innerText = `เลขสำนวน: ${record.caseNumber}, ผู้ต้องหา: ${record.suspect}, ผู้เสียหาย: ${record.victim}, พนักงานสอบสวน: ${record.investigator} (${statusText})\n🕒 ยืมเมื่อ: ${borrowedDate}${returnedDate}`;
+                list.appendChild(li);
+            });
+        }
+
+        async function loadAllRequests() {
+            const {
+                collection,
+                getDocs,
+                query,
+                orderBy
+            } = window.firestoreFunctions;
+            const db = window.db;
+            const list = document.getElementById("allRequests");
+            list.innerHTML = '';
+            const q = query(
+                collection(db, "cases"),
+                orderBy("timestamp", "desc")
+            );
+            const snapshot = await getDocs(q);
+            if (snapshot.empty) {
+                list.innerHTML = '<li>ไม่มีบันทึกการยืมสำนวนในระบบ</li>';
+                return;
+            }
+            snapshot.forEach(doc => {
+                const req = doc.data();
+                const li = document.createElement("li");
+                li.textContent = `เลขสำนวน: ${req.caseNumber}, ผู้ต้องหา: ${req.suspect}, ผู้เสียหาย: ${req.victim}, พนักงานสอบสวน: ${req.investigator} (${req.status === "borrowed" ? "📌 ยืมอยู่" : "✅ คืนแล้ว"})`;
+                li.dataset.suspect = (req.suspect || "").toLowerCase();
+                li.dataset.investigator = (req.investigator || "").toLowerCase();
+                list.appendChild(li);
+            });
+        }
+
+        function filterRequests() {
+            const query = document.getElementById("searchQuery").value.toLowerCase();
+            const items = document.querySelectorAll("#allRequests li");
+            items.forEach(li => {
+                const suspect = li.dataset.suspect;
+                const investigator = li.dataset.investigator;
+                const show = query === '' || suspect.includes(query) || investigator.includes(query);
+                li.style.display = show ? "block" : "none";
+            });
+        }
+    </script>
+</body>
+</html>

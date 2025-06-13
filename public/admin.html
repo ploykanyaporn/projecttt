@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8" />
+    <title>ประวัติการยืมคืนสำนวน</title>
+    <style>
+        body { font-family: "Sarabun", sans-serif; background-color: #f4f4f4; margin: 0; padding: 20px;}
+        h1 { color: #2c3e50; text-align: center;}
+        .search-bar { text-align: right; max-width: 800px; margin: 0 auto 12px auto; }
+        .search-bar input {
+            padding:8px; border-radius:4px; border:1px solid #ccc; width: 200px;
+            margin-bottom: 8px;
+        }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; background-color: white; box-shadow: 0 4px 10px rgba(0,0,0,0.1);}
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd;}
+        th { background-color: #2c3e50; color: white;}
+        tr:hover { background-color: #f1f1f1;}
+        .back-btn { display: inline-block; margin-top: 20px; text-decoration: none; background-color: #2c3e50; color: white; padding: 10px 15px; border-radius: 6px; transition: background-color 0.3s ease;}
+        .back-btn:hover { background-color: #1a252f;}
+        .status-borrowed { color: #c0392b; font-weight: bold; }
+        .status-returned { color: #17913a; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>ประวัติการยืมคืนสำนวน</h1>
+
+    <div class="search-bar">
+        <input id="searchCase" type="text" placeholder="ค้นหาเลขสำนวน..." autocomplete="off" />
+    </div>
+    
+    <table id="historyTable">
+        <thead>
+            <tr>
+                <th>เลขสำนวน</th>
+                <th>ชื่อผู้ต้องหา</th>
+                <th>พนักงานสอบสวน</th>
+                <th>ชื่อผู้ยืม</th>
+                <th>สถานะ</th>
+                <th>วันที่ทำรายการ</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <a href="login.html" class="back-btn">← กลับหน้าหลัก</a>
+
+    <script>
+        let allRecords = [];
+
+        async function loadRecords() {
+            const tbody = document.querySelector("#historyTable tbody");
+            tbody.innerHTML = "";
+
+            try {
+                const response = await fetch("/api/case-files/history");
+                const result = await response.json();
+
+                if (!result.success) {
+                    tbody.innerHTML = `<tr><td colspan="6">เกิดข้อผิดพลาดในการดึงข้อมูล</td></tr>`;
+                    return;
+                }
+
+                allRecords = result.data || [];
+                renderTable(allRecords);
+
+            } catch (error) {
+                tbody.innerHTML = `<tr><td colspan="6">เกิดข้อผิดพลาด: ${error.message}</td></tr>`;
+            }
+        }
+
+        function renderTable(data) {
+            const tbody = document.querySelector("#historyTable tbody");
+            tbody.innerHTML = "";
+
+            if (!data || data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6">ไม่มีข้อมูล</td></tr>`;
+                return;
+            }
+
+            data.forEach(row => {
+                let actionDate;
+                if (row.status === "returned" && row.returnedAt) {
+                    actionDate = new Date(row.returnedAt);
+                } else if (row.timestamp) {
+                    actionDate = new Date(row.timestamp);
+                } else {
+                    actionDate = null;
+                }
+                const actionStr = actionDate
+                    ? actionDate.toLocaleString("th-TH", {
+                        year: "numeric", month: "2-digit", day: "2-digit",
+                        hour: "2-digit", minute: "2-digit"
+                    })
+                    : "-";
+
+                let statusClass = "";
+                let statusText = "";
+                if (row.status === "borrowed") {
+                    statusClass = "status-borrowed";
+                    statusText = '📌 ยืมอยู่';
+                } else {
+                    statusClass = "status-returned";
+                    statusText = '✅ คืนแล้ว';
+                }
+
+                const tr = document.createElement("tr");
+                tr.innerHTML = `
+                    <td>${row.caseNumber || ""}</td>
+                    <td>${row.suspect || ""}</td>
+                    <td>${row.investigator || ""}</td>
+                    <td>${row.officer || ""}</td>
+                    <td class="${statusClass}">${statusText}</td>
+                    <td>${actionStr}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Filter ในช่องค้นหา
+        document.addEventListener("DOMContentLoaded", () => {
+            loadRecords();
+            document.getElementById("searchCase").addEventListener("input", function() {
+                const val = this.value.trim().toLowerCase();
+                const filtered = !val ? allRecords :
+                    allRecords.filter(r =>
+                        (r.caseNumber || '').toLowerCase().includes(val)
+                    );
+                renderTable(filtered);
+            });
+        });
+    </script>
+</body>
+</html>
