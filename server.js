@@ -14,7 +14,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 const db = mysql.createConnection({
     host: 'localhost',
     user: 'root',
-    password: 'kanyaporn',
+    // password: 'kanyaporn',
     database: 'police',
     charset: 'utf8mb4'    // ให้แน่ใจรองรับภาษาไทย
 });
