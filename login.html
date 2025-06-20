@@ -94,10 +94,6 @@
         alert("กรุณากรอกชื่อผู้ใช้");
         return;
       }
-const data = {
-  success: name.toLowerCase() === "admin",
-  message: name.toLowerCase() === "admin" ? null : "ชื่อผู้ใช้ไม่ถูกต้อง",
-};
 
       try {
         const res = await fetch("http://localhost:3000/api/login", {
